@@ -143,3 +143,24 @@ As matrizes de confusão somam as 2 repetições (1.552 previsões = 2 × 776) e
 - **Logistic Regression** é o pior modelo (CA 0,809), com confusão entre todas as classes, principalmente **Eólica ↔ Hidráulica** (~108 em cada sentido) e **Eólica ↔ Solar** (~95 a 102). Uma fronteira linear em potência, latitude e longitude não separa bem fontes que ocupam as mesmas regiões e faixas de potência.
 - **Comparação com o notebook:** a ordem dos modelos é a mesma (Random Forest ≥ kNN > Regressão Logística). Os números não são idênticos porque as divisões sorteadas são diferentes, o Orange usou 2 repetições e média *weighted*, e o pré-processamento do kNN e da regressão logística é diferente. A limitação discutida na Tarefa 1 continua valendo: parte do acerto vem do aglomerado de usinas solares de 1 kW na amostra da API.
 
+### Regressão (Open-Meteo)
+
+**Fluxo:** File (`meteo_treino_orange.csv`, as primeiras 800 horas: 01/04 a 12/06/2025) → Select Columns (features `temperatura_c`, `umidade_pct`, `nuvens_pct`, `vento_kmh`, `hora`; target `radiacao_w_m2`; meta `data_hora`) → **Linear Regression**, **Random Forest** e **Gradient Boosting** → Test and Score.
+
+**Avaliação no Test and Score:** *Random sampling*, **2 repetições**, treino de **80%**, dentro das 800 horas do arquivo de treino (320 previsões no total). A opção *Stratified* não tem efeito em regressão. **Limitação declarada:** essa amostragem **embaralha as horas**, então o teste inclui horas vizinhas das usadas no treino. A avaliação temporal do notebook, que treina no passado e testa nas últimas 20% das horas, é mais rigorosa. Por isso as métricas do Orange ficam **otimistas** e não são diretamente comparáveis às do Python.
+
+| Algoritmo | MAE (W/m²) | MSE ((W/m²)²) | RMSE (W/m²) | R² |
+|---|---|---|---|---|
+| **Gradient Boosting** | **43,1** | **3.689** | **60,7** | **0,941** |
+| Random Forest | 45,0 | 4.195 | 64,8 | 0,933 |
+| Linear Regression | 124,9 | 25.154 | 158,6 | 0,601 |
+
+![Test and Score — regressão](orange/orange_07_testscore_regressao.png)
+
+**Análise dos três resultados**
+
+- **Gradient Boosting** é o melhor modelo, como no notebook, com o Random Forest muito próximo. Os dois captam a curva em sino da radiação ao longo do dia e a interação entre hora e nuvens.
+- **Linear Regression** fica bem atrás (MAE de 125 W/m²), porque trata a hora como uma relação linear, enquanto a radiação sobe de manhã e desce à tarde.
+- **Comparação com o notebook:** a ordem dos modelos é a mesma (Gradient Boosting > Random Forest >> Regressão Linear). Os erros no Orange são menores (MAE 43 × 60 W/m² no Gradient Boosting; R² 0,94 × 0,87) porque a amostragem aleatória testa em horas do mesmo período do treino. Na divisão temporal do notebook, o teste é a segunda quinzena de junho, mais nublada e com menos radiação, e o modelo precisa extrapolar.
+- **Radiação não é geração:** vale a mesma ressalva da Tarefa 2. O alvo é a irradiância horizontal em W/m², não a energia em kWh produzida por um sistema fotovoltaico.
+
