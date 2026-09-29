@@ -1,6 +1,6 @@
 # CP02 — APIs, energias renováveis e aprendizado de máquina
 
-## Lista de RMs
+## Participantes/RMs
 
 | Nome | RM |
 |---|---|
