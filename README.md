@@ -28,7 +28,7 @@ O notebook parte do notebook de apoio da disciplina ([`Aula_APIs_Energia_Renovav
 | `aneel_classificacao_orange.csv` | Dados da Tarefa 1, gerados pela API da ANEEL (3.876 linhas) |
 | `meteo_regressao_orange.csv` | Dados da Tarefa 2, gerados pela API Open-Meteo (1.001 linhas) |
 | `figuras/` | Gráficos exportados do notebook |
-| `orange/` | Capturas de tela da atividade complementar no Orange Data Mining |
+| `orange/` | Capturas de tela da atividade complementar no Orange Data Mining e CSVs de treino/teste da regressão (divisão temporal) |
 | `requirements.txt` | Bibliotecas necessárias |
 
 ## Origem e período dos dados
@@ -120,6 +120,8 @@ Os três algoritmos de cada tarefa usam **exatamente a mesma divisão** de trein
 
 **Fluxo:** File (`aneel_classificacao_orange.csv`) → Select Columns (features `potencia_kw`, `latitude`, `longitude`; target `fonte`) → **kNN**, **Logistic Regression** e **Random Forest** → Test and Score → Confusion Matrix.
 
+![Fluxo da classificação no Orange](orange/orange_01_fluxo_classificacao.png)
+
 **Avaliação no Test and Score:** *Random sampling*, **2 repetições**, treino de **80%**, **estratificado**. As mesmas divisões foram usadas para os três modelos. Os três algoritmos são os mesmos do notebook. Com *Target class* em "(None, show average over classes)", o Orange calcula Precision, Recall e F1 como **média ponderada pelo tamanho das classes (weighted)**.
 
 | Algoritmo | AUC | CA (Accuracy) | F1 | Precision | Recall | MCC |
@@ -145,22 +147,33 @@ As matrizes de confusão somam as 2 repetições (1.552 previsões = 2 × 776) e
 
 ### Regressão (Open-Meteo)
 
-**Fluxo:** File (`meteo_treino_orange.csv`, as primeiras 800 horas: 01/04 a 12/06/2025) → Select Columns (features `temperatura_c`, `umidade_pct`, `nuvens_pct`, `vento_kmh`, `hora`; target `radiacao_w_m2`; meta `data_hora`) → **Linear Regression**, **Random Forest** e **Gradient Boosting** → Test and Score.
+**Fluxo:** dois widgets File, com as horas já separadas em ordem cronológica:
+- `orange/meteo_treino_orange.csv`: as primeiras 800 horas, de 01/04 a 12/06/2025 às 14h;
+- `orange/meteo_teste_orange.csv`: as últimas 201 horas, de 12/06 às 15h a 30/06/2025.
 
-**Avaliação no Test and Score:** *Random sampling*, **2 repetições**, treino de **80%**, dentro das 800 horas do arquivo de treino (320 previsões no total). A opção *Stratified* não tem efeito em regressão. **Limitação declarada:** essa amostragem **embaralha as horas**, então o teste inclui horas vizinhas das usadas no treino. A avaliação temporal do notebook, que treina no passado e testa nas últimas 20% das horas, é mais rigorosa. Por isso as métricas do Orange ficam **otimistas** e não são diretamente comparáveis às do Python.
+Cada File passa por um Select Columns, com features `temperatura_c`, `umidade_pct`, `nuvens_pct`, `vento_kmh` e `hora`, target `radiacao_w_m2` e meta `data_hora`. O treino alimenta **Linear Regression**, **Random Forest** (300 árvores) e **Gradient Boosting** (scikit-learn, 300 árvores, learning rate 0,05). Esses três modelos seguem para o **Test and Score** (entrada *Test Data* = teste) e para o **Predictions**, que alimenta um **Scatter Plot** de valores reais × previstos.
+
+![Fluxo da regressão no Orange](orange/orange_06_fluxo_regressao.png)
+
+**Avaliação no Test and Score:** **Test on test data**, com treino nas primeiras 80% das horas e teste nas últimas 20%, sem embaralhar. É a **mesma divisão temporal do notebook**.
 
 | Algoritmo | MAE (W/m²) | MSE ((W/m²)²) | RMSE (W/m²) | R² |
 |---|---|---|---|---|
-| **Gradient Boosting** | **43,1** | **3.689** | **60,7** | **0,941** |
-| Random Forest | 45,0 | 4.195 | 64,8 | 0,933 |
-| Linear Regression | 124,9 | 25.154 | 158,6 | 0,601 |
+| **Gradient Boosting** | **64,9** | **7.250** | **85,1** | **0,845** |
+| Random Forest | 66,8 | 7.308 | 85,5 | 0,844 |
+| Linear Regression | 145,2 | 30.034 | 173,3 | 0,360 |
 
 ![Test and Score — regressão](orange/orange_07_testscore_regressao.png)
 
+**Erros por hora de teste (Predictions)** e **gráfico real × previsto (Gradient Boosting):**
+
+![Predictions — regressão](orange/orange_08_predictions_regressao.png)
+
+![Real × previsto no Orange](orange/orange_09_real_vs_previsto.png)
+
 **Análise dos três resultados**
 
-- **Gradient Boosting** é o melhor modelo, como no notebook, com o Random Forest muito próximo. Os dois captam a curva em sino da radiação ao longo do dia e a interação entre hora e nuvens.
-- **Linear Regression** fica bem atrás (MAE de 125 W/m²), porque trata a hora como uma relação linear, enquanto a radiação sobe de manhã e desce à tarde.
-- **Comparação com o notebook:** a ordem dos modelos é a mesma (Gradient Boosting > Random Forest >> Regressão Linear). Os erros no Orange são menores (MAE 43 × 60 W/m² no Gradient Boosting; R² 0,94 × 0,87) porque a amostragem aleatória testa em horas do mesmo período do treino. Na divisão temporal do notebook, o teste é a segunda quinzena de junho, mais nublada e com menos radiação, e o modelo precisa extrapolar.
+- **Gradient Boosting e Random Forest praticamente empatam** (MAE ≈ 65–67 W/m², R² ≈ 0,84) e são muito melhores que a **Linear Regression** (MAE 145 W/m², R² 0,36). Os modelos de árvores captam a curva em sino da radiação ao longo do dia e a interação entre hora e nuvens. A regressão linear trata a hora como uma relação linear, mas a radiação sobe de manhã e desce à tarde.
+- **Gráfico real × previsto:** os pontos acompanham a diagonal, com mais dispersão nas horas de radiação intermediária e alta (300–700 W/m²). É nessa faixa que uma nuvem passageira muda muito o valor real. Nos valores altos, o modelo tende a **subestimar**.
+- **Comparação com o notebook:** a divisão é a mesma, e a **Linear Regression dá exatamente o mesmo resultado nos dois** (MAE 145,2, R² 0,360), porque é o mesmo algoritmo determinístico. Random Forest e Gradient Boosting ficam próximos: no Python, 69,3 / 0,832 e 59,9 / 0,871. As pequenas diferenças vêm das implementações e dos hiperparâmetros padrão de cada ferramenta. A conclusão é a mesma: modelos de árvores ≫ modelo linear, e a hora é essencial.
 - **Radiação não é geração:** vale a mesma ressalva da Tarefa 2. O alvo é a irradiância horizontal em W/m², não a energia em kWh produzida por um sistema fotovoltaico.
-
