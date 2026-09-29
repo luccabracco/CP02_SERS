@@ -1,5 +1,16 @@
 # CP02 — APIs, energias renováveis e aprendizado de máquina
 
+## Lista de RMs
+
+| Nome | RM |
+|---|---|
+| Vitor Nascimento | 571873 |
+| Lucas Santana | 573197 |
+| Pierre Biason | 569718 |
+| João Pedro Ferrari | 573037 |
+| Lucca Bracco | 570175 |
+| Nikkolas Korner | 569655 |
+
 ## Objetivo
 
 Consultar duas APIs públicas de dados de energia e clima, gerar dois conjuntos de dados em CSV e resolver duas tarefas independentes de aprendizado de máquina em Python, comparando **três algoritmos em cada uma**:
